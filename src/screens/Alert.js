@@ -1,6 +1,7 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useState} from "react";
 import { Text,View,Image,ScrollView,TouchableOpacity,StyleSheet,Appearance} from "react-native";
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import ContentLoader from "react-native-easy-content-loader";
 import ActionSheet from "react-native-actionsheet";
 import { Provider } from "react-native-paper";
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -13,6 +14,7 @@ export default function main ({navigation}) {
     const [dayscolor, DaysColor] = useState('#000');
     const [bgcolor, BgColor] = useState('#fff');
     const [brcolor, BrColor] = useState('#d9d9d9');
+    
     const [addshow, AddShow] = useState(false);
     const [editshow, EditShow] = useState(false);
     const [currentid, CurrentId] = useState(null);
@@ -20,13 +22,16 @@ export default function main ({navigation}) {
     const [date, setDate] = useState(null);
     const [interval, Interval] = useState(null);
     const [Data, setData] = useState([]);
+    const [nodata, NoData] = useState(false);
+    const [loading, Loading] = useState(true);
+
     var datarefs = new Map();
     var delrefs= new Map();
     const delarray=['Delete','Cancel'];
     
     useEffect(() => {
-        getData()
         DarkMode()
+        getData()
     }, []);
 
     const DarkMode=()=>{
@@ -40,7 +45,7 @@ export default function main ({navigation}) {
     };
 
     const days=(date,months)=> {
-        //TODO:
+        //TODO: add alert
         const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         var date1 = new Date(date.slice(7,11),m.indexOf(date.slice(0,3)),date.slice(4,6))
         var year = Math.floor(months / 12);
@@ -76,6 +81,20 @@ export default function main ({navigation}) {
         });
         getData();
     };
+
+    const editRow = (id,name,date,interval) => {
+        createTable()
+        db.transaction((tx)=>{
+            tx.executeSql(
+                "INSERT INTO Alerts (Name,Date,Interval) VALUES (?,?,?)",
+                [name, date, interval]
+            )
+        });
+        db.transaction((tx)=>{
+            tx.executeSql(`DELETE FROM Alerts WHERE Id= ${id}`)
+        });
+        getData();
+    };
     
     const delRow=(id)=>{
         db.transaction((tx)=>{
@@ -95,10 +114,25 @@ export default function main ({navigation}) {
                     for (var i=0; i<res.rows.length; i++){
                         Dat.push(res.rows.item(i))
                     }
-                    setData(Dat);
+                    if (Dat.length==0){
+                        sleep(800).then(()=>{
+                            Loading(false)
+                            NoData(true)
+                        })
+                    }else{
+                        setData(Dat);
+                        sleep(500).then(()=>{
+                            Loading(false)
+                            NoData(false)
+                        })
+                    }
                 }
             )
         })
+    };
+
+    const sleep = (milliseconds) => {
+        return new Promise(resolve => setTimeout(resolve, milliseconds))
     };
 
     const CloseAdd=(props)=> {
@@ -111,9 +145,101 @@ export default function main ({navigation}) {
     const CloseEdit=(props)=> {
         EditShow(false)
         if(props.status==true){
-            delRow(props.id)
-            addRow(props.name,props.date,props.interval)
+            editRow(props.id,props.name,props.date,props.interval)
         }
+    };
+
+    const msg=()=>{
+        return(
+            <View style={styles.nodata}>
+                <Text style={styles.nodatatext}>No Data</Text>
+                <Text style={styles.nodatatext}>Click  '+'  button to add new</Text>
+            </View>
+        )
+    };
+
+    const dataView=()=>{
+        return(
+        <ScrollView
+            onTouchStart={()=>{
+                [...datarefs.entries()].forEach(([key, ref]) => {
+                    ref.close();
+                });
+            }}
+        >
+        {Data.map(item=>(
+            <View key={item.Id}>
+            <View style={styles.swipecontainer}>
+                <Swipeable
+                    ref={ref => {datarefs.set(item.Id, ref)}}
+                    renderRightActions={()=>{
+                        return (
+                            <View style={style.view}>
+                            <TouchableOpacity style={style.editbutton} onPress={()=>{
+                                EditShow(true)
+                                CurrentId(item.Id)
+                                Name(item.Name)
+                                setDate(item.Date)
+                                Interval(item.Interval.toString())
+                            }}>
+                                <Icon name="pencil" size={27} color='#fff'/>
+                            </TouchableOpacity>
+                            <Edit show={editshow} onDismiss={CloseEdit} id={currentid} name={name} date={date} interval={interval} enableBackdropDismiss></Edit>
+                            <TouchableOpacity style={style.deletebutton} onPress={()=>{
+                                [...delrefs.entries()].forEach(([key, ref]) => {
+                                    if (key==item.Id){ref.show()}
+                                });
+                            }}>
+                                <Icon name="trash" size={28} color="#fff"/>
+                            </TouchableOpacity>
+                            <ActionSheet
+                                ref={ref => {delrefs.set(item.Id, ref)}}
+                                title={'Are you sure ??'}
+                                options={delarray}
+                                cancelButtonIndex={1}
+                                destructiveButtonIndex={0}
+                                onPress={(index) =>{
+                                    if (delarray[index]=='Delete'){
+                                        delRow(item.Id)
+                                    }
+                                }}/>
+                            </View>
+                        );
+                    }}
+                    overshootRight={false}
+                    useNativeAnimations
+                    >
+                    <View style={styles.swipeable}>
+                        <View style={styles.details}>
+                            <Text style={styles.upperText}>{item.Name}</Text>
+                            <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" />  {item.Date}            <Icon name="reload-circle" size={15} color="#0f815a" />  {item.Interval} Months</Text>
+                        </View>
+                        <View style={styles.days}>
+                            {(()=>{
+                                if (days(item.Date,item.Interval)<0){
+                                    return(
+                                        <Text style={{color:'#f55',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
+                                    )
+                                }else if (5>days(item.Date,item.Interval)>0) {
+                                    return(
+                                        <Text style={{color:'#fc0',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
+                                    )
+                                } else {
+                                    return(
+                                        <Text style={{color:'#0f815a',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
+                                    )
+                                }
+                            })()}
+                            <Text style={styles.daytext}>days</Text>
+                        </View>
+                    </View>
+                </Swipeable>
+            </View>
+            <View style={styles.border}></View>
+            </View>
+        ))}
+        </ScrollView>
+        )
     };
 
     const styles = StyleSheet.create({
@@ -146,6 +272,19 @@ export default function main ({navigation}) {
             marginHorizontal: "6%",
             borderBottomWidth: 1,
             borderBottomColor: `${brcolor}`
+        },
+        loading: {
+            paddingTop: 15,
+            paddingHorizontal: "10%",
+        },
+        nodata: {
+            alignSelf: 'center',
+            alignItems: 'center',
+            paddingVertical: '50%'
+        },
+        nodatatext:{
+            color: `${color}`,
+            fontSize: 15
         },
         swipecontainer: {
             paddingLeft: '9%',
@@ -225,85 +364,22 @@ export default function main ({navigation}) {
         <Image source={require('../img/scar.png')} style={styles.car}/>
         <View style={styles.maincontainer}>
             <View style={styles.border}></View>
-            <ScrollView
-                onTouchStart={()=>{
-                    [...datarefs.entries()].forEach(([key, ref]) => {
-                        ref.close();
-                    });
-                }}
-            >
-            {Data.map(item=>(
-                <View key={item.Id}>
-                <View style={styles.swipecontainer}>
-                    <Swipeable
-                        ref={ref => {datarefs.set(item.Id, ref)}}
-                        renderRightActions={()=>{
-                            return (
-                                <View style={style.view}>
-                                <TouchableOpacity style={style.editbutton} onPress={()=>{
-                                    EditShow(true)
-                                    CurrentId(item.Id)
-                                    Name(item.Name)
-                                    setDate(item.Date)
-                                    Interval(item.Interval.toString())
-                                }}>
-                                    <Icon name="pencil" size={27} color='#fff'/>
-                                </TouchableOpacity>
-                                <Edit show={editshow} onDismiss={CloseEdit} id={currentid} name={name} date={date} interval={interval} enableBackdropDismiss></Edit>
-                                <TouchableOpacity style={style.deletebutton} onPress={()=>{
-                                    [...delrefs.entries()].forEach(([key, ref]) => {
-                                        if (key==item.Id){ref.show()}
-                                    });
-                                }}>
-                                    <Icon name="trash" size={28} color="#fff"/>
-                                </TouchableOpacity>
-                                <ActionSheet
-                                    ref={ref => {delrefs.set(item.Id, ref)}}
-                                    title={'Are you sure ??'}
-                                    options={delarray}
-                                    cancelButtonIndex={1}
-                                    destructiveButtonIndex={0}
-                                    onPress={(index) =>{
-                                        if (delarray[index]=='Delete'){
-                                            delRow(item.Id)
-                                        }
-                                    }}/>
-                                </View>
-                            );
-                        }}
-                        overshootRight={false}
-                        useNativeAnimations
-                        >
-                        <View style={styles.swipeable}>
-                            <View style={styles.details}>
-                                <Text style={styles.upperText}>{item.Name}</Text>
-                                <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" />  {item.Date}            <Icon name="reload-circle" size={15} color="#0f815a" />  {item.Interval} Months</Text>
-                            </View>
-                            <View style={styles.days}>
-                                {(()=>{
-                                    if (days(item.Date,item.Interval)<0){
-                                        return(
-                                            <Text style={{color:'#f55',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
-                                        )
-                                    }else if (5>days(item.Date,item.Interval)>0) {
-                                        return(
-                                            <Text style={{color:'#fc0',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
-                                        )
-                                    } else {
-                                        return(
-                                            <Text style={{color:'#0f815a',fontSize:15}}>{days(item.Date,item.Interval)}</Text>
-                                        )
-                                    }
-                                })()}
-                                <Text style={styles.daytext}>days</Text>
-                            </View>
-                        </View>
-                    </Swipeable>
-                </View>
-                <View style={styles.border}></View>
-                </View>
-            ))}
-            </ScrollView>
+            <ContentLoader
+                active
+                loading={loading}
+                containerStyles={styles.loading}
+                listSize={6}
+                tWidth={'40%'}
+                pRows={1}
+                pHeight={[10]}
+                pWidth={['100%']}/>
+            {(()=>{
+                if (nodata == true){
+                    return(msg())
+                }else{
+                    return(dataView())
+                }
+            })()}
         </View>
         <View style={styles.bottom}>
             <TouchableOpacity style={styles.button} onPress={()=>navigation.navigate('Garage')}>

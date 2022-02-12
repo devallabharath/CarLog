@@ -4,20 +4,23 @@ import { Provider } from "react-native-paper";
 import Icon from 'react-native-vector-icons/Ionicons';
 import SQLite from 'react-native-sqlite-storage';
 import Add from '../components/addService';
+import ContentLoader from "react-native-easy-content-loader";
 
 function Main(props) {
     const [color, Color] = useState('#000');
     const [bgcolor, BgColor] = useState('#fff');
     const [brcolor, BrColor] = useState('#d9d9d9');
-
+    
     const [Data, setData] = useState([]);
     const [show, setShow] = useState(false);
     const [refreshing, Refreshing] = useState(false);
+    const [nodata, NoData] = useState(false);
+    const [loading, Loading] = useState(true);
     
     useEffect(() => {
-        getData()
         DarkMode()
-    }, []);
+        getData()
+    },[]);
     
     const DarkMode=()=>{
         const mode = Appearance.getColorScheme()
@@ -54,8 +57,9 @@ function Main(props) {
         getData();
     };
     
-    function getData() {
+    const getData=()=> {
         const Dat=[]
+        createTable()
         db.transaction((tx)=>{
             tx.executeSql(
                 "SELECT Id,Name,Date,Rate,Img FROM Services",
@@ -65,6 +69,17 @@ function Main(props) {
                         Dat.push(res.rows.item(i))
                     }
                     setData(Dat);
+                    if (Dat.length==0){
+                        sleep(800).then(()=>{
+                            Loading(false)
+                            NoData(true)
+                        })
+                    }else{
+                        sleep(500).then(()=>{
+                            Loading(false)
+                            NoData(false)
+                        })
+                    }
                 }
             )
         })
@@ -81,6 +96,37 @@ function Main(props) {
         if (props.status==true){
             addRow(date=props.date, name=props.name, rate=props.rate, img=props.img);
         };
+    };
+
+    const msg=()=>{
+        return(
+            <View style={styles.nodata}>
+                <Text style={styles.nodatatext}>No Data</Text>
+                <Text style={styles.nodatatext}>Click  '+'  button to add new</Text>
+            </View>
+        )
+    };
+
+    const dataView=()=>{
+        return(
+            <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={Refresh}/>}>
+                {Data.map(item=>(
+                    <View key={item.Id}>
+                    <TouchableOpacity style={styles.outercontainer} onPress={()=>props.navigation.navigate('Service',{id:item.Id, name:item.Name, date:item.Date, rate:item.Rate, img:item.Img, refresh:getData.bind(), add:addRow.bind()})}>
+                        <View style={styles.innerContainer}>
+                        <Text style={styles.upperText}>{item.Name.slice(0,35)}</Text>
+                        <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" /> {item.Date}                    <Icon name="pricetag" size={15} color="#0f815a" />  ₹{item.Rate}</Text>
+                        </View>
+                    </TouchableOpacity>
+                    <View style={styles.border}></View>
+                    </View>
+                ))}
+            </ScrollView>
+        )
+    };
+
+    const sleep = (milliseconds) => {
+        return new Promise(resolve => setTimeout(resolve, milliseconds))
     };
 
     const styles = StyleSheet.create({
@@ -114,6 +160,19 @@ function Main(props) {
             borderBottomWidth: 1,
             borderBottomColor: `${brcolor}`
         },
+        loading: {
+            paddingTop: 15,
+            paddingHorizontal: "10%",
+        },
+        nodata: {
+            alignSelf: 'center',
+            alignItems: 'center',
+            paddingVertical: '50%'
+        },
+        nodatatext:{
+            color: `${color}`,
+            fontSize: 15
+        },
         outercontainer: {
             paddingHorizontal: "10%",
         },
@@ -142,7 +201,7 @@ function Main(props) {
             width: '33%',
             alignItems: 'center'
         },
-    })
+    });
 
     return (
     <Provider>
@@ -153,19 +212,22 @@ function Main(props) {
         <Image source={require('../img/scar.png')} style={styles.car}/>
         <View style={styles.maincontainer}>
             <View style={styles.border}></View>
-            <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={Refresh}/>}>
-                {Data.map(item=>(
-                    <View key={item.Id}>
-                    <TouchableOpacity style={styles.outercontainer} onPress={()=>props.navigation.navigate('Service',{id:item.Id, name:item.Name, date:item.Date, rate:item.Rate, img:item.Img, refresh:getData.bind(), add:addRow.bind()})}>
-                        <View style={styles.innerContainer}>
-                        <Text style={styles.upperText}>{item.Name.slice(0,35)}</Text>
-                        <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" /> {item.Date}                    <Icon name="pricetag" size={15} color="#0f815a" />  ₹{item.Rate}</Text>
-                        </View>
-                    </TouchableOpacity>
-                    <View style={styles.border}></View>
-                    </View>
-                ))}
-            </ScrollView>
+            <ContentLoader
+                active
+                loading={loading}
+                containerStyles={styles.loading}
+                listSize={6}
+                tWidth={'40%'}
+                pRows={1}
+                pHeight={[10]}
+                pWidth={['100%']}/>
+            {(()=>{
+                if (nodata==true){
+                    return(msg())
+                }else{
+                    return(dataView())
+                }
+            })()}
         </View>
         <View style={styles.bottom}>
             <TouchableOpacity style={styles.button} onPress={()=>props.navigation.navigate('Garage')}>

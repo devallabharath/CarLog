@@ -3,6 +3,7 @@ import {View,Text,Image,TouchableOpacity,StyleSheet,Appearance} from 'react-nati
 import Icon  from 'react-native-vector-icons/Ionicons';
 import SQLite from 'react-native-sqlite-storage';
 import Edit from '../components/editHome'; 
+import Dialog from '../components/homeDialog';
 import { Provider } from "react-native-paper";
 
 
@@ -11,8 +12,12 @@ function Main({navigation}) {
     const [color, Color] = useState('#000');
     const [bgcolor, BgColor] = useState('#fff');
     const [bgcolor2, BgColor2] = useState('#0f815a');
+
+    const [icon, setIcon] = useState('create-outline');
+    const [iconsize, setIconsize] = useState(26);
     const [Data, setData] = useState([]);
     const [show, setShow] = useState(false);
+    const [showdlg, ShowDlg] = useState(false);
     const headers = ["Car Name     :","Car Model    :","Mfg Year       :","Capacity       :","Fuel Type     :","Car Plate      :","Chassis No  :","Engine No    :"]
 
     useEffect(() => {
@@ -67,6 +72,7 @@ function Main({navigation}) {
     
     const getData = () => {
         const Dat=[]
+        createTable()
         db.transaction((tx)=>{
             tx.executeSql(
                 "SELECT Id,Head,Value FROM HomeData",
@@ -75,8 +81,15 @@ function Main({navigation}) {
                     for (var i=0; i<res.rows.length; i++){
                         Dat.push(res.rows.item(i))
                     }
-                    setData(Dat);
-                    return Dat
+                    if (Dat.length==0){
+                        setIcon('add')
+                        setIconsize(32)
+                        ShowDlg(true)
+                    }else{
+                        setData(Dat)
+                        setIcon('create-outline')
+                        setIconsize(26)
+                    }
                 }
             )
         })
@@ -87,6 +100,11 @@ function Main({navigation}) {
         if (props.status==true){
             StoreData(props.values)
         }
+    };
+
+    const OpenEdit=()=>{
+        ShowDlg(false)
+        setShow(true)
     };
 
     const styles = StyleSheet.create({
@@ -112,7 +130,7 @@ function Main({navigation}) {
             resizeMode: "cover",
         },
         container: { 
-            height: "54.5%",
+            height: "54%",
             width: "100%",
             marginTop: 5,
             paddingTop: 30,
@@ -183,7 +201,7 @@ function Main({navigation}) {
             </View>
             <View style={styles.editView}>
                 <TouchableOpacity style={styles.Button} onPress={()=>setShow('true')}>
-                    <Icon name="create-outline" size={26} color="#fff" />
+                    <Icon name={icon} size={iconsize} color="#fff" />
                 </TouchableOpacity>
             </View>
             <Edit
@@ -193,6 +211,7 @@ function Main({navigation}) {
                 values={Data.map(item=>(item.Value))}
                 >
             </Edit>
+            <Dialog show={showdlg} edit={OpenEdit} Close={()=>ShowDlg(false)}/>
         </View>
         <View style={styles.Buttons}>
             <TouchableOpacity style={styles.Button} onPress={()=>{navigation.navigate('Trips')}}>

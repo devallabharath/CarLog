@@ -69,6 +69,7 @@ function main (props) {
     };
 
     const delImg=()=>{
+        //TODO: delete original file from temp
         db.transaction((tx)=>{
             tx.executeSql(`UPDATE Services SET Img=NULL WHERE Id= ${props.route.params.id}`)
         });

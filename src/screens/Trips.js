@@ -3,8 +3,9 @@ import {View,Text,Image,TouchableOpacity,ScrollView,StyleSheet,Appearance} from 
 import { Provider } from "react-native-paper";
 import Icon from 'react-native-vector-icons/Ionicons';
 import Add from '../components/addTrip';
-import SQLite from 'react-native-sqlite-storage';TODO:
+import SQLite from 'react-native-sqlite-storage';
 import dData from '../data/tripsdata';
+import ContentLoader from "react-native-easy-content-loader";
 
 function Main({navigation}) {
     const [show, setShow] = useState(false);
@@ -12,6 +13,8 @@ function Main({navigation}) {
     const [Data, setData] = useState([]);
     const [bgcolor, BgColor] = useState('#fff');
     const [brcolor, BrColor] = useState('#d9d9d9');
+    const [loading, Loading] = useState(false);
+    const [nodata, NoData] = useState(false);
 
     useEffect(() => {
         DarkMode()
@@ -57,6 +60,7 @@ function Main({navigation}) {
     };
     
     function getData() {
+        Loading(true)
         const Dat=[]
         db.transaction((tx)=>{
             tx.executeSql(
@@ -94,6 +98,37 @@ function Main({navigation}) {
         return(ans)
     };
 
+    const msg=()=>{
+        return(
+            <View style={styles.nodata}>
+                <Text style={styles.nodatatext}>No Data</Text>
+                <Text style={styles.nodatatext}>Click  '+'  button to add new</Text>
+            </View>
+        )
+    };
+
+    const dataView=()=>{
+        return(
+            <ScrollView>
+            {dData.map(item=>(
+                <View key={item.key}>
+                <TouchableOpacity style={styles.outercontainer} onPress={()=>navigation.navigate('Trip',{name:item.name, date:item.date, dist:dist(item.key), rate:rate(item.key), k:item.key})}>
+                    <View style={styles.innerContainer}>
+                    <Text style={styles.upperText}>{item.name.slice(0,35)}</Text>
+                        <View style={styles.subcontainer}>
+                        <Text style={styles.lowerText}><Icon name="time" size={15} color="#0f815a" /> {item.date}</Text>
+                        <Text style={styles.lowerText}><Icon name="code" size={18} color="#0f815a" /> {dist(item.key)} Km</Text>
+                        <Text style={styles.lowerText}><Icon name="pricetag" size={15} color="#0f815a" /> ₹ {rate(item.key)}</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+                <View style={styles.border}></View>
+                </View>
+            ))}
+            </ScrollView>
+        )
+    };
+
     const styles = StyleSheet.create({
         main: {
             height: "100%",
@@ -126,6 +161,10 @@ function Main({navigation}) {
             borderBottomColor: `${brcolor}`
         },
         outercontainer: {
+            paddingHorizontal: "10%",
+        },
+        loading: {
+            paddingTop: 15,
             paddingHorizontal: "10%",
         },
         innerContainer: {
@@ -170,23 +209,22 @@ function Main({navigation}) {
         <Image source={require('../img/scar.png')} style={styles.car}/>
         <View style={styles.maincontainer}>
             <View style={styles.border}></View>
-            <ScrollView>
-            {dData.map(item=>(
-                <View key={item.key}>
-                <TouchableOpacity style={styles.outercontainer} onPress={()=>navigation.navigate('Trip',{name:item.name, date:item.date, dist:dist(item.key), rate:rate(item.key), k:item.key})}>
-                    <View style={styles.innerContainer}>
-                    <Text style={styles.upperText}>{item.name.slice(0,35)}</Text>
-                        <View style={styles.subcontainer}>
-                        <Text style={styles.lowerText}><Icon name="time" size={15} color="#0f815a" /> {item.date}</Text>
-                        <Text style={styles.lowerText}><Icon name="code" size={18} color="#0f815a" /> {dist(item.key)} Km</Text>
-                        <Text style={styles.lowerText}><Icon name="pricetag" size={15} color="#0f815a" /> ₹ {rate(item.key)}</Text>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-                <View style={styles.border}></View>
-                </View>
-            ))}
-            </ScrollView>
+            <ContentLoader
+                active
+                loading={loading}
+                containerStyles={styles.loading}
+                listSize={6}
+                tWidth={'40%'}
+                pRows={1}
+                pHeight={[10]}
+                pWidth={['100%']}/>
+            {(()=>{
+                if (nodata==true){
+                    return(msg())
+                }else{
+                    return(dataView())
+                }
+            })()}
         </View>
         <View style={styles.bottom}>
             <TouchableOpacity style={styles.button} onPress={()=>navigation.navigate('Garage')}>
