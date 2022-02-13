@@ -6,7 +6,6 @@ import Edit from '../components/editHome';
 import Dialog from '../components/homeDialog';
 import { Provider } from "react-native-paper";
 
-
 function Main({navigation}) {
     
     const [color, Color] = useState('#000');
@@ -139,6 +138,15 @@ function Main({navigation}) {
             backgroundColor: `${bgcolor2}`,
             justifyContent: "space-between",
         },
+        msg: {
+            height: '90%',
+            alignSelf: 'center',
+            paddingTop: '45%'
+        },
+        msgtext: {
+            color: '#fff',
+            fontSize: 16
+        },
         detailsview: {
             height: '90%',
             flexDirection: "column",
@@ -192,12 +200,25 @@ function Main({navigation}) {
         <Image source={require('../img/pcar.png')} style={styles.car}/>
         <View style={styles.container}>
             <View style={styles.detailsview}>
-            {Data.map(item=>(
-                <View style={styles.details} key={item.Id}>
-                    <Text style={styles.field}>{item.Head}</Text>
-                    <Text style={styles.text}>{item.Value}</Text>
-                </View>
-            ))}
+            {(()=>{
+                if (icon=='add'){
+                    return(
+                        <View style={styles.msg}>
+                            <Text style={styles.msgtext}>No Car details to show</Text>
+                            <Text style={styles.msgtext}>Click + to add new Car</Text>
+                        </View>
+                    )
+                }else{
+                    return(
+                        Data.map(item=>(
+                            <View style={styles.details} key={item.Id}>
+                                <Text style={styles.field}>{item.Head}</Text>
+                                <Text style={styles.text}>{item.Value}</Text>
+                            </View>
+                        ))
+                    )
+                }
+            })()}
             </View>
             <View style={styles.editView}>
                 <TouchableOpacity style={styles.Button} onPress={()=>setShow('true')}>

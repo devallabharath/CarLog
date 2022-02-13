@@ -87,7 +87,7 @@ export default function BottomSheet (props){
         ImageUri(props.img)
     }
     const Add =()=> {
-        if ((name!=null)&&(amount!=null)&&(imageuri!=null)){
+        if ((name!=null)&&(amount!=null)){
             props.onDismiss({status:true,id:props.id,date:dateText.slice(4,15),name:name,rate:amount,img:imageuri})
         }
     };

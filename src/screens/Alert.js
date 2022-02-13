@@ -115,13 +115,13 @@ export default function main ({navigation}) {
                         Dat.push(res.rows.item(i))
                     }
                     if (Dat.length==0){
-                        sleep(800).then(()=>{
+                        sleep(300).then(()=>{
                             Loading(false)
                             NoData(true)
                         })
                     }else{
                         setData(Dat);
-                        sleep(500).then(()=>{
+                        sleep(100).then(()=>{
                             Loading(false)
                             NoData(false)
                         })
@@ -365,7 +365,6 @@ export default function main ({navigation}) {
         <View style={styles.maincontainer}>
             <View style={styles.border}></View>
             <ContentLoader
-                active
                 loading={loading}
                 containerStyles={styles.loading}
                 listSize={6}

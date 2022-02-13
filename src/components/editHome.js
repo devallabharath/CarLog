@@ -80,7 +80,10 @@ export default function BottomSheet (props){
         props.onDismiss({status:false})
     };
     const Add =()=> {
-        props.onDismiss({status:true, values:[name,model,year,cc,fuel,plate,body,engine]})
+        err=[undefined,'',' ']
+        if (err.includes(name)==false){
+            props.onDismiss({status:true, values:[name,model,year,cc,fuel,plate,body,engine]})
+        }
     };
 
     const styles = StyleSheet.create({

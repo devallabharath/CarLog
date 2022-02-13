@@ -1,5 +1,6 @@
 import React, {useRef,useState,useEffect} from "react";
-import { View,Image,Text,StyleSheet,TouchableOpacity,TouchableWithoutFeedback,LogBox,Appearance } from "react-native";
+import { View,Image,Text,StyleSheet,TouchableOpacity,
+    TouchableWithoutFeedback,LogBox,Appearance } from "react-native";
 import { Provider } from "react-native-paper";
 import ActionSheet from "react-native-actionsheet";
 import ImageView from 'react-native-image-viewing';
