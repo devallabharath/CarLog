@@ -125,11 +125,11 @@ function Main({navigation}) {
         },
         car: {
             width: "93%",
-            height: "25%",
+            height: "24%",
             resizeMode: "cover",
         },
         container: { 
-            height: "54%",
+            height: "55%",
             width: "100%",
             marginTop: 5,
             paddingTop: 30,

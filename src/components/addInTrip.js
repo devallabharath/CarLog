@@ -9,7 +9,7 @@ export default function AddinTrip(props){
 
     const [value, Value] = useState(null);
     const [visible, Visible] = useState(false);
-    const [dateText, DateText] = useState(new Date().toString().substring(0, 15));
+    const [dateText, DateText] = useState(new Date().toString().substring(4, 15));
     const [date, setDate] = useState(new Date());
     const [color, Color] = useState('#000');
     const [bgcolor, BgColor] = useState('#fff');
@@ -27,10 +27,10 @@ export default function AddinTrip(props){
 
     const Submit=()=>{
         if (value!=null) {
-            props.Add(value)
+            props.Add(dateText,value)
             Value(null)
             setDate(new Date())
-            DateText(new Date().toString().substring(0, 15))
+            DateText(new Date().toString().substring(4, 15))
         }
     };
 
@@ -38,11 +38,11 @@ export default function AddinTrip(props){
         props.onClose()
         Value(null)
         setDate(new Date())
-        DateText(new Date().toString().substring(0, 15))
+        DateText(new Date().toString().substring(4, 15))
     };
 
     const handlePicker =(d)=> {
-        DateText(d.toString().substring(0, 15))
+        DateText(d.toString().substring(4, 15))
         setDate(d)
         Visible(false)
     };

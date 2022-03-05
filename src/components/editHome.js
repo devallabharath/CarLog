@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {Text,View,TextInput,Image,ScrollView,KeyboardAvoidingView,TouchableOpacity,
     Pressable,TouchableWithoutFeedback,Animated,Dimensions,Keyboard,StyleSheet,Appearance,LogBox} from "react-native";
-import { Modal, Portal } from "react-native-paper";
+import { Portal } from "react-native-paper";
 import { PanGestureHandler } from "react-native-gesture-handler";
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -83,6 +83,8 @@ export default function BottomSheet (props){
         err=[undefined,'',' ']
         if (err.includes(name)==false){
             props.onDismiss({status:true, values:[name,model,year,cc,fuel,plate,body,engine]})
+        }else{
+            Name(null)
         }
     };
 

@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import {Text,View,TextInput,Image,Animated,Dimensions,TouchableOpacity,
     Pressable,TouchableWithoutFeedback,Keyboard,StyleSheet,Appearance} from "react-native";
-import { Portal } from "react-native-paper";
-import { PanGestureHandler } from "react-native-gesture-handler";
-import Icon from 'react-native-vector-icons/Ionicons';
-import DatePicker from "./datepicker";
-
-export default function BottomSheet (props){
-    const bottomSheetHeight = Dimensions.get("window").height * 0.91;
-    const [open, setOpen] = useState(props.show);
-    const bottom = useRef(new Animated.Value(-bottomSheetHeight)).current;
+    import { Portal } from "react-native-paper";
+    import { PanGestureHandler } from "react-native-gesture-handler";
+    import Icon from 'react-native-vector-icons/Ionicons';
+    import DatePicker from "./datepicker";
+    
+    export default function BottomSheet (props){
+        const bottomSheetHeight = Dimensions.get("window").height * 0.91;
+        const [open, setOpen] = useState(props.show);
+        const bottom = useRef(new Animated.Value(-bottomSheetHeight)).current;
+        const [color, Color] = useState('#000');
+        const [bgcolor, BgColor] = useState('#fff');
 
     useEffect(() => {
         DarkMode()
@@ -57,8 +59,6 @@ export default function BottomSheet (props){
     const [dateText, DateText] = useState(new Date().toString().substring(0, 15));
     const [date, setDate] = useState(new Date());
     const [name, Name] = useState(null);
-    const [color, Color] = useState('#000');
-    const [bgcolor, BgColor] = useState('#fff');
 
     const handlePicker =(d)=> {
         DateText(d.toString().substring(0, 15))
@@ -78,12 +78,14 @@ export default function BottomSheet (props){
         Name(null)
     };
     const Add =()=> {
-        if (name!=null){
+        err=[null,undefined,'',' ']
+        if (err.includes(name)==false){
+            Name(null)
             Date(new Date())
             DateText(new Date().toString().substring(0, 15))
-            props.onDismiss({status:true,date:dateText.slice(4,15),name:name,odo:odo})
+            props.onDismiss({status:true,date:dateText.slice(4,15),name:name})
+        }else{
             Name(null)
-            Odo(null)
         }
     };
 

@@ -4,25 +4,23 @@ import { Provider } from "react-native-paper";
 import Icon from 'react-native-vector-icons/Ionicons';
 import Add from '../components/addTrip';
 import SQLite from 'react-native-sqlite-storage';
-import dData from '../data/tripsdata';
 import ContentLoader from "react-native-easy-content-loader";
 
-function Main({navigation}) {
+function Main(props) {
     const [show, setShow] = useState(false);
     const [color, Color] = useState('#000');
     const [Data, setData] = useState([]);
     const [bgcolor, BgColor] = useState('#fff');
     const [brcolor, BrColor] = useState('#d9d9d9');
-    const [loading, Loading] = useState(false);
+    const [loading, Loading] = useState(true);
     const [nodata, NoData] = useState(false);
+    const [trate,tRate] = useState(0);
+    const [tdist, tDist] = useState(0);
 
     useEffect(() => {
         DarkMode()
+        getData()
     }, []);
-
-    const CloseAdd =(props)=> {
-        setShow(false)
-    };
 
     const DarkMode=()=>{
         const mode = Appearance.getColorScheme()
@@ -42,67 +40,97 @@ function Main({navigation}) {
         db.transaction((tx)=>{
             tx.executeSql(
                 "CREATE TABLE IF NOT EXISTS Trips "+
-                "(Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Name TEXT, Key TEXT)",
+                "(Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Name TEXT)",
                 []
             )
         })
     };
     
-    const addRow = (date,name,key) => {
+    const addRow = (date,name) => {
         createTable()
         db.transaction((tx)=>{
             tx.executeSql(
-                "INSERT INTO Trips (Date,Name,Key) VALUES (?,?,?)",
-                [date, name, key]
+                "INSERT INTO Trips (Date,Name) VALUES (?,?)",
+                [date, name]
                 )
         });
         getData();
     };
     
-    function getData() {
-        Loading(true)
+    const getData=()=> {
+        tDist(0)
+        tRate(0)
         const Dat=[]
+        createTable()
         db.transaction((tx)=>{
             tx.executeSql(
-                "SELECT Id,Name,Date,Key FROM Trips",
+                "SELECT Id,Name,Date FROM Trips",
                 [],
                 (tx, res)=>{
                     for (var i=0; i<res.rows.length; i++){
                         Dat.push(res.rows.item(i))
                     }
                     setData(Dat);
+                    if (Dat.length==0){
+                        sleep(300).then(()=>{
+                            Loading(false)
+                            NoData(true)
+                        })
+                    }else{
+                        sleep(200).then(()=>{
+                            Loading(false)
+                            NoData(false)
+                        })
+                    }
                 }
             )
         })
     };
 
-    const dist =(k)=> {
-        let ans=0
-        var keys = Object.keys(dData[k].log);
-        for (var i=0; i<keys.length; i++){
-            if (dData[k].log[i].kind == 'dist'){
-                ans+=dData[k].log[i].value
-            }
-        }
-        return(ans)
-    }
+    const sleep = (milliseconds) => {
+        return new Promise(resolve => setTimeout(resolve, milliseconds))
+    };
 
-    const rate =(k)=> {
-        let ans=0
-        var keys = Object.keys(dData[k].log)
-        for (var i=0; i<keys.length; i++){
-            if (dData[k].log[i].kind != 'dist'){
-                ans+=dData[k].log[i].value
-            }
+    const dist =(id)=> {
+        db.transaction((tx)=>{
+            tx.executeSql(
+                `SELECT SUM(Value) FROM ${'Trip'+id} WHERE Kind='dist'`,
+                [],
+                (tx, res)=>{
+                    if(res.rows.item(0)['SUM(Value)']!=null){
+                        tDist(res.rows.item(0)['SUM(Value)'])
+                    }else{tDist(0)}
+                }
+            )
+        })
+        return(tdist)
+    };
+    
+    const rate =(id)=> {
+        try{
+            db.transaction((tx)=>{
+                tx.executeSql(
+                    `SELECT SUM(Value) FROM ${'Trip'+id} WHERE Kind IS NOT 'dist'`,
+                    [],
+                    (tx, res)=>{
+                        if(res.rows.item(0)['SUM(Value)']!=null){
+                            tRate(res.rows.item(0)['SUM(Value)'])
+                        }else{tRate(0)}
+                    }
+                )
+            })
+            return(trate)
+        }catch (error){
+            tRate(0)
+            return(0)
         }
-        return(ans)
     };
 
     const msg=()=>{
         return(
-            <View style={styles.nodata}>
-                <Text style={styles.nodatatext}>No Data</Text>
-                <Text style={styles.nodatatext}>Click  '+'  button to add new</Text>
+            <View style={styles.msg}>
+                <Text style={styles.msgtext}>No Data</Text>
+                <Text style={styles.msgtext}>Click  '+'  button to add new</Text>
             </View>
         )
     };
@@ -110,15 +138,15 @@ function Main({navigation}) {
     const dataView=()=>{
         return(
             <ScrollView>
-            {dData.map(item=>(
-                <View key={item.key}>
-                <TouchableOpacity style={styles.outercontainer} onPress={()=>navigation.navigate('Trip',{name:item.name, date:item.date, dist:dist(item.key), rate:rate(item.key), k:item.key})}>
+            {Data.map(item=>(
+                <View key={item.Id}>
+                <TouchableOpacity style={styles.outercontainer} onPress={()=>props.navigation.navigate('Trip',{name:item.Name, date:item.Date, id:item.Id, refresh:getData.bind()})}>
                     <View style={styles.innerContainer}>
-                    <Text style={styles.upperText}>{item.name.slice(0,35)}</Text>
+                    <Text style={styles.upperText}>{item.Name.slice(0,35)}</Text>
                         <View style={styles.subcontainer}>
-                        <Text style={styles.lowerText}><Icon name="time" size={15} color="#0f815a" /> {item.date}</Text>
-                        <Text style={styles.lowerText}><Icon name="code" size={18} color="#0f815a" /> {dist(item.key)} Km</Text>
-                        <Text style={styles.lowerText}><Icon name="pricetag" size={15} color="#0f815a" /> ₹ {rate(item.key)}</Text>
+                        <Text style={styles.lowerText}><Icon name="time" size={15} color="#0f815a" /> {item.Date}</Text>
+                        <Text style={styles.lowerText}><Icon name="code" size={18} color="#0f815a" /> {dist(item.Id)} Km</Text>
+                        <Text style={styles.lowerText}><Icon name="pricetag" size={15} color="#0f815a" /> {rate(item.Id)} ₹</Text>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -127,6 +155,13 @@ function Main({navigation}) {
             ))}
             </ScrollView>
         )
+    };
+
+    const CloseAdd =(props)=> {
+        if (props.status==true){
+            setShow(false)
+            addRow(props.date,props.name)
+        }else{setShow(false)}
     };
 
     const styles = StyleSheet.create({
@@ -159,6 +194,15 @@ function Main({navigation}) {
             marginHorizontal: "6%",
             borderBottomWidth: 1,
             borderBottomColor: `${brcolor}`
+        },
+        msg: {
+            alignSelf: 'center',
+            alignItems: 'center',
+            paddingVertical: '50%'
+        },
+        msgtext:{
+            color: `${color}`,
+            fontSize: 15
         },
         outercontainer: {
             paddingHorizontal: "10%",
@@ -227,7 +271,7 @@ function Main({navigation}) {
             })()}
         </View>
         <View style={styles.bottom}>
-            <TouchableOpacity style={styles.button} onPress={()=>navigation.navigate('Garage')}>
+            <TouchableOpacity style={styles.button} onPress={()=>props.navigation.navigate('Garage')}>
                 <Icon name="arrow-back" size={30} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.button} onPress={()=>setShow('true')}>

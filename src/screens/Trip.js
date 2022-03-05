@@ -1,26 +1,49 @@
 import React, {useRef, useState, useEffect} from "react";
-import { View,Text,TouchableOpacity,ScrollView,StyleSheet,Appearance} from "react-native";
+import { View,Text,TouchableOpacity,ScrollView,StyleSheet,Appearance,LogBox} from "react-native";
 import ActionSheet from "react-native-actionsheet";
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AddinTrip from '../components/addInTrip';
-import data from '../data/tripsdata';
+import EditinTrip from '../components/editInTrip';
+import SQLite from 'react-native-sqlite-storage';
+import ContentLoader from "react-native-easy-content-loader";
+import { Provider } from "react-native-paper";
+
+LogBox.ignoreLogs([
+    "Non-serializable values were found in the navigation state",
+    "Sending `onAnimatedValueUpdate` with no listeners registered"
+])
 
 export default function main (props) {
-    const [visible, Visible] = useState(false);
-    const [addtype, Addtype] = useState(null);
     const [color, Color] = useState('#000');
     const [bgcolor, BgColor] = useState('#fff');
     const [brcolor, BrColor] = useState('#d9d9d9');
+
+    const [avisible, aVisible] = useState(false);
+    const [addtype, Addtype] = useState('');
+    const [evisible, eVisible] = useState(false);
+
     let refs = new Map()
+    let itemdelrefs = new Map()
     let addoptions = useRef()
-    let itemdeloptions = useRef()
-    let tripdeloptions = useRef()
+    let tripdelrefs = useRef()
     let addarray = ['Add Distance','Add Fuel','Toll Expence','Other','Cancel']
     let delarray = ['Delete','Cancel']
 
+    const [id, Id] = useState(null)
+    const [type, Type] = useState(null)
+    const [value, Value] = useState('')
+    const [dt, setdt] = useState(new Date().toString().substring(4, 15))
+
+    const Table = 'Trip'+props.route.params.id
+    var [Data, setData] = useState([])
+    const [loading, Loading] = useState(true);
+    const [nodata, NoData] = useState(false);
+
     useEffect(() => {
         DarkMode()
+        createTable()
+        getData()
     }, []);
 
     const DarkMode=()=>{
@@ -32,109 +55,273 @@ export default function main (props) {
         }
     };
 
+    const db= SQLite.openDatabase({
+        name: 'CarLog',
+        location: 'default'
+    })
+
+    function createTable (){
+        db.transaction((tx)=>{
+            tx.executeSql(
+                `CREATE TABLE IF NOT EXISTS  ${Table}`+
+                "(Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT,Kind TEXT, Value INTEGER)",
+                []
+            )
+        })
+    };
+
+    const dropTable =(table)=>{
+        db.transaction((tx)=>{
+            tx.executeSql(
+                `DROP TABLE ${table}`
+            )
+        })
+    };
+
+    const addRow = (date,kind,value) => {
+        db.transaction((tx)=>{
+            tx.executeSql(
+                `INSERT INTO ${Table} (Date,Kind,Value) VALUES (?,?,?)`,
+                [date,kind,value]
+            )
+        });
+        getData();
+    };
+
+    const delRow = (id)=>{
+        db.transaction((tx)=>{
+            tx.executeSql(`DELETE FROM ${Table} WHERE Id= ${id}`)
+        });
+        getData();
+    };
+
+    function getData() {
+        const Dat=[]
+        db.transaction((tx)=>{
+            tx.executeSql(
+                `SELECT Id,Date,Kind,Value FROM ${Table}`,
+                [],
+                (tx, res)=>{
+                    for (var i=0; i<res.rows.length; i++){
+                        Dat.push(res.rows.item(i))
+                    }
+                    setData(Dat);
+                    if (Dat.length==0){
+                        sleep(300).then(()=>{
+                            Loading(false)
+                            NoData(true)
+                        })
+                    }else{
+                        sleep(200).then(()=>{
+                            Loading(false)
+                            NoData(false)
+                        })
+                    }
+                }
+            )
+        })
+    };
+
+    const sleep = (milliseconds) => {
+        return new Promise(resolve => setTimeout(resolve, milliseconds))
+    };
+
     const Options= (op) =>{
         if (op=='add') {addoptions.current.show()}
-        else if (op=='trip') {tripdeloptions.current.show()}
-        else {itemdeloptions.current.show()}
+        else if (op=='trip') {tripdelrefs.current.show()}
+        else {
+            [...itemdelrefs.entries()].forEach(([key, ref]) => {
+                if (key==item.Id){ref.show()}
+            });
+        }
     }
 
     const showAdd= (op) =>{
         if (op=='Add Distance') {
-            Visible(true); Addtype('dist')
+            aVisible(true); Addtype('dist')
         }else if (op=='Add Fuel') {
-            Visible(true); Addtype('fuel')
+            aVisible(true); Addtype('fuel')
         }else if (op=='Toll Expence') {
-            Visible(true); Addtype('toll')
+            aVisible(true); Addtype('toll')
         }else if (op=='Other') {
-            Visible(true); Addtype('other')
-        }else {}
+            aVisible(true); Addtype('other')
+        }else{aVisible(false)}
     }
 
-    const Add =(v)=>{
-        Visible(false)
-        alert(v)
+    const Add =(d,v)=>{
+        addRow(d,addtype,v)
+        aVisible(false)
     }
 
     const addClose =()=>{
-        Visible(false)
+        aVisible(false)
     }
 
-    const CloseSwipe=()=>{
-        [...refs.entries()].forEach(([key, ref]) => {
-            ref.close();
-        });
-    };
-
-    const getCosts = (k,op) =>{
-        var f = 0
-        var t = 0
-        var o = 0
-        if (op=='f'){
-            for (var i=0; i<data[k].log.length; i++) {
-                if (data[k].log[i].kind=='fuel') {
-                    f+=data[k].log[i].value
-                }
-            }
-            return(f+ ' ₹        ')
-        }else if (op=='t'){
-            for (var i=0; i<data[k].log.length; i++) {
-                if (data[k].log[i].kind=='toll') {
-                    t+=data[k].log[i].value
-                }
-            }
-            return(t+ ' ₹        ')
-        }else {
-            for (var i=0; i<data[k].log.length; i++) {
-                if (data[k].log[i].kind=='other') {
-                    o+=data[k].log[i].value
-                }
-            }
-            return(o+ ' ₹        ') 
+    const Edit =(s,i,d,v)=>{
+        eVisible(false)
+        if(s==true){
+            alert(v)
+            getData()
         }
     }
 
-    const getName = (k,i)=>{
-        if (data[k].log[i].kind=='fuel'){
+    const getCosts = (op) =>{
+        let v = 0
+        if (op=='f'){
+            for (var i=0; i<Data.length; i++) {
+                if (Data[i].Kind=='fuel') {v+=Data[i].Value}
+            }
+            return(v+ ' ₹        ')
+        }else if (op=='t'){
+            for (var i=0; i<Data.length; i++) {
+                if (Data[i].Kind=='toll') {v+=Data[i].Value}
+            }
+            return(v+ ' ₹        ')
+        }else if(op=='o'){
+            for (var i=0; i<Data.length; i++) {
+                if (Data[i].Kind=='other') {v+=Data[i].Value}
+            }
+            return(v+ ' ₹')
+        }else if(op=='d'){
+            for (var i=0; i<Data.length; i++) {
+                if (Data[i].Kind=='dist') {v+=Data[i].Value}
+            }
+            return(v)
+        }else{
+            for (var i=0; i<Data.length; i++) {
+                if (Data[i].Kind!='dist') {v+=Data[i].Value}
+            }
+            return(v)
+        }
+    }
+
+    const getName = (k)=>{
+        if (k=='fuel'){
             return('Fuel Cost')
-        }else if(data[k].log[i].kind=='dist'){
+        }else if(k=='dist'){
             return('Distance')
-        }else if (data[k].log[i].kind=='toll'){
+        }else if (k=='toll'){
             return('Toll Expence')
         }else {
             return('Other')
         }
     }
-    
-    const getValue = (k,i)=>{
-        if(data[k].log[i].kind=='dist'){
-            return(data[k].log[i].value + ' Km')
+
+    const getValue = (k,v)=>{
+        if(k=='dist'){
+            return(v + ' Km')
         }else{
-            return(data[k].log[i].value + ' ₹')
+            return(v + ' ₹')
         }
     }
 
-    const getPic = (k,i,n)=>{
+    const getPic = (k,n)=>{
         if (n=='name'){
-            if (data[k].log[i].kind=='fuel'){
+            if (k=='fuel'){
                 return('water-outline')
-            }else if(data[k].log[i].kind=='dist'){
+            }else if(k=='dist'){
                 return('code-working')
-            }else if (data[k].log[i].kind=='toll'){
+            }else if (k=='toll'){
                 return('remove-circle-outline')
             }else {
                 return('card-outline')
             }
         }else{
-            if (data[k].log[i].kind=='fuel'){
+            if (k=='fuel'){
                 return(26)
-            }else if(data[k].log[i].kind=='dist'){
+            }else if(k=='dist'){
                 return(24)
-            }else if (data[k].log[i].kind=='toll'){
+            }else if (k=='toll'){
                 return(24)
             }else {
                 return(22)
             }
         }
+    };
+
+    const msg=()=>{
+        return(
+            <View style={styles.msg}>
+                <Text style={styles.msgtext}>No Data</Text>
+                <Text style={styles.msgtext}>Click  '+'  button to add new</Text>
+            </View>
+        )
+    };
+
+    const dataView=()=>{
+        return(
+            <ScrollView
+                onTouchStart={()=>{
+                    [...refs.entries()].forEach(([key, ref]) => {
+                        ref.close();
+                    });
+                }}
+            >
+            {Data.map(item=>(
+                <View key={item.Id}>
+                <View style={styles.swipecontainer} >
+                    <Swipeable
+                        ref={ref => {refs.set(item.Id, ref)}}
+                        renderRightActions={()=>{
+                            return (
+                                <View style={style.view}>
+                                <TouchableOpacity style={style.editbutton} onPress={()=>{
+                                    Id(item.Id);
+                                    Type(item.Kind);
+                                    Value(item.Value.toString());
+                                    setdt(item.Date);
+                                    eVisible(true)
+                                }}>
+                                    <Icon name="pencil" size={27} color='#fff' />
+                                </TouchableOpacity>
+                                <EditinTrip
+                                    BackdropDismiss
+                                    show={evisible}
+                                    Edit={Edit}
+                                    id={id}
+                                    type={type}
+                                    value={value}
+                                    date={dt}
+                                />
+                                <TouchableOpacity style={style.deletebutton} onPress={()=>{
+                                    [...itemdelrefs.entries()].forEach(([key, ref]) => {
+                                        if (key==item.Id){ref.show()}
+                                    });
+                                }}>
+                                    <Icon name="trash" size={28} color="#fff" />
+                                </TouchableOpacity>
+                                <ActionSheet
+                                    ref={ref => {itemdelrefs.set(item.Id, ref)}}
+                                    title={'This will Delete Item !!'}
+                                    options={delarray}
+                                    cancelButtonIndex={1}
+                                    destructiveButtonIndex={0}
+                                    onPress={(index) =>{
+                                        if (delarray[index]=='Delete'){delRow(item.Id)}
+                                    }}
+                                    />
+                            </View>
+                            );
+                        }}
+                        overshootRight={false}
+                        useNativeAnimations
+                        >
+                        <View style={styles.swipeable}>
+                            <View style={styles.details}>
+                                <Text style={styles.upperText}>{getName(item.Kind)}</Text>
+                                <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" /> {item.Date}             {getValue(item.Kind,item.Value)}</Text>
+                            </View>
+                            <View style={styles.img}>
+                                <Icon name={getPic(item.Kind, 'name')} size={getPic(item.Kind)} color={'#0f815a'}/>
+                            </View>
+                        </View>
+                    </Swipeable>
+                </View>
+                <View style={styles.border}></View>
+                </View>
+            ))}
+        </ScrollView>
+        )
     };
 
     const styles = StyleSheet.create({
@@ -155,7 +342,7 @@ export default function main (props) {
             backgroundColor: `${bgcolor}`,
         },
         date: {
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: '400',
             paddingTop: 10,
             color: '#0f815a',
@@ -174,8 +361,8 @@ export default function main (props) {
         },
         rate: {
             fontSize: 22,
-            fontWeight: '600',
-            color: '#f44',
+            fontWeight: '500',
+            color: `${color}`,
             paddingVertical: 10,
         },
         maincontainer: {
@@ -187,6 +374,19 @@ export default function main (props) {
             marginHorizontal: "6%",
             borderBottomWidth: 1,
             borderBottomColor: `${brcolor}`
+        },
+        loading: {
+            paddingTop: 15,
+            paddingHorizontal: "10%",
+        },
+        msg: {
+            alignSelf: 'center',
+            alignItems: 'center',
+            paddingVertical: '50%'
+        },
+        msgtext:{
+            color: `${color}`,
+            fontSize: 15
         },
         swipecontainer: {
             paddingLeft: '8%',
@@ -227,10 +427,34 @@ export default function main (props) {
             width: '25%',
             alignItems: 'center'
         },
-    
+
     });
-    
+
+    const style = StyleSheet.create({
+        view: {
+            width: 150,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        editbutton: {
+            width: '50%',
+            height: '100%',
+            backgroundColor: '#55f',
+            justifyContent: 'center',
+            alignItems: 'center'
+        },
+        deletebutton: {
+            width: '50%',
+            height: '100%',
+            backgroundColor: '#f55',
+            justifyContent: 'center',
+            alignItems: 'center'
+        },
+    })
+
     return (
+        <Provider>
         <View>
             <View style={styles.top}>
                 <Text style={styles.heading}>Trip</Text>
@@ -238,77 +462,26 @@ export default function main (props) {
             <View style={styles.container}>
                 <Text style={styles.date}>{props.route.params.date}</Text>
                 <Text style={styles.name}>{props.route.params.name}</Text>
-                <Text style={styles.dist}>{props.route.params.dist} Km</Text>
-                <Text style={styles.rate}>₹ {props.route.params.rate}</Text>
-                <Text style={styles.dist}><Icon name="water" size={22} color={'#0f815a'}/> {getCosts(props.route.params.k,'f')}<Icon name="remove-circle" size={20} color={'#0f815a'}/> {getCosts(props.route.params.k,'t')}<Icon name="card" size={20} color={'#0f815a'}/> {getCosts(props.route.params.k,'o')}</Text>
+                <Text style={styles.rate}>{getCosts('d')} Km   {getCosts('tot')} ₹</Text>
+                <Text style={styles.dist}><Icon name="water" size={22} color={'#0f815a'}/> {getCosts('f')}<Icon name="remove-circle" size={20} color={'#0f815a'}/> {getCosts('t')}<Icon name="card" size={20} color={'#0f815a'}/> {getCosts('o')}</Text>
             </View>
             <View style={styles.maincontainer}>
                 <View style={styles.border}></View>
-                <ScrollView
-                    onTouchStart={()=>{
-                        [...refs.entries()].forEach(([key, ref]) => {
-                            ref.close();
-                        });
-                    }}
-                >
-                {data[props.route.params.k].log.map(item=>(
-                    <View key={item.key}>
-                    <View style={styles.swipecontainer} >
-                        <Swipeable
-                            renderRightActions={()=>{
-                                return (
-                                <View style={style.view}>
-                                    <TouchableOpacity style={style.editbutton} onPress={CloseSwipe}>
-                                        <Icon name="pencil" size={27} color='#fff' />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={style.deletebutton} onPress={Options}>
-                                        <Icon name="trash" size={28} color="#fff" />
-                                    </TouchableOpacity>
-                                    <ActionSheet
-                                        ref={itemdeloptions}
-                                        title={'This will Delete Item !!'}
-                                        options={delarray}
-                                        cancelButtonIndex={1}
-                                        destructiveButtonIndex={0}
-                                        onPress={(index) =>{
-                                            CloseSwipe()
-                                            // if (delarray[index]=='Delete') {
-                                            //     CloseSwpie()
-                                            //     alert('Item Removed')
-                                            // }
-                                        }}
-                                    />
-                                </View>
-                                );
-                            }}
-                            overshootRight={false}
-                            useNativeAnimations
-                            ref={ref => {refs.set(item.key, ref)}}
-                            onSwipeableWillOpen={()=>{
-                                [...refs.entries()].forEach(([key, ref]) => {
-                                    if (key !== item.key && ref) ref.close();
-                                });
-                            }}
-                            >
-                            <View style={styles.swipeable}>
-                                <View style={styles.details}>
-                                    <Text style={styles.upperText}>{getName(props.route.params.k, item.key)}</Text>
-                                    <Text style={styles.lowerText}> <Icon name="time" size={15} color="#0f815a" /> {item.date}             {getValue(props.route.params.k,item.key)}</Text>
-                                </View>
-                                <View style={styles.img}>
-                                    <Icon name={getPic(props.route.params.k, item.key, 'name')} size={getPic(props.route.params.k, item.key)} color={'#0f815a'}/>
-                                </View>
-                            </View>
-                        </Swipeable>
-                    </View>
-                    <View style={styles.border}></View>
-                    </View>
-                ))}
-                </ScrollView>
-                <AddinTrip isVisible={visible} Add={Add} onClose={addClose} type={addtype}/>
+                <ContentLoader
+                    loading={loading}
+                    containerStyles={styles.loading}
+                    listSize={6}
+                    tWidth={'40%'}
+                    pRows={1}
+                    pHeight={[10]}
+                    pWidth={['100%']}/>
+                {(()=>{
+                    if (nodata==true){return(msg())}
+                    else{return(dataView())}
+                })()}
             </View>
             <View style={styles.bottom}>
-                <TouchableOpacity style={styles.button} onPress={()=>props.navigation.navigate('Trips')}>
+                <TouchableOpacity style={styles.button} onPress={()=>{props.route.params.refresh();props.navigation.navigate('Trips')}}>
                     <Icon name="arrow-back" size={32} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.button} onPress={()=>{Options('add')}}>
@@ -319,50 +492,34 @@ export default function main (props) {
                     title={'Choose an Option'}
                     options={addarray}
                     cancelButtonIndex={4}
-                    destructiveButtonIndex={'none'}
+                    destructiveButtonIndex={4}
                     onPress={(index) =>{
                         showAdd(addarray[index])
                     }}
                 />
+                <AddinTrip isVisible={avisible} Add={Add} onClose={addClose} type={addtype}/>
                 <TouchableOpacity style={styles.button} onPress={()=>{Options("trip")}}>
                     <Icon name="trash-outline" size={28} color="#fff" />
                 </TouchableOpacity>
                 <ActionSheet
-                    ref={tripdeloptions}
+                    ref={tripdelrefs}
                     title={'This will Delete Trip !!'}
                     options={delarray}
                     cancelButtonIndex={1}
                     destructiveButtonIndex={0}
                     onPress={(index) =>{
                         if (delarray[index]=='Delete') {
-                            alert('Trip Deleted')
+                            dropTable(Table)
+                            db.transaction((tx)=>{
+                                tx.executeSql(`DELETE FROM Trips WHERE Id= ${props.route.params.id}`)
+                            });
+                            props.route.params.refresh()
+                            props.navigation.navigate('Trips')
                         }
                     }}
                 />
             </View>
         </View>
+        </Provider>
     )
 }
-
-const style = StyleSheet.create({
-    view: {
-        width: 150,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    editbutton: {
-        width: '50%',
-        height: '100%',
-        backgroundColor: '#55f',
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-    deletebutton: {
-        width: '50%',
-        height: '100%',
-        backgroundColor: '#f55',
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-})
